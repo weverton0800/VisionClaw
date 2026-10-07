@@ -91,8 +91,11 @@ enum ToolDeclarations {
   /// `listCalendarEvents` / `createCalendarEvent` stay defined for the
   /// on-device path; add them back here to switch EventKit back on.
   static func allDeclarations() -> [[String: Any]] {
-    guard GeminiConfig.isAgentConfigured else { return directModeDeclarations() }
-    return [execute] + directModeDeclarations()
+    allDeclarations(agentAvailable: GeminiConfig.isAgentConfigured)
+  }
+
+  static func allDeclarations(agentAvailable: Bool) -> [[String: Any]] {
+    agentAvailable ? [execute] + directModeDeclarations() : directModeDeclarations()
   }
 
   static func directModeDeclarations() -> [[String: Any]] {

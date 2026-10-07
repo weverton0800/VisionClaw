@@ -40,7 +40,7 @@ class GeminiLiveService: ObservableObject {
     self.urlSession = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
   }
 
-  func connect() async -> Bool {
+  func connect(agentAvailable: Bool = false) async -> Bool {
     guard let url = GeminiConfig.websocketURL() else {
       connectionState = .error("No API key configured")
       return false
@@ -55,7 +55,7 @@ class GeminiLiveService: ObservableObject {
         guard let self else { return }
         Task { @MainActor in
           self.connectionState = .settingUp
-          self.sendSetupMessage()
+          self.sendSetupMessage(agentAvailable: agentAvailable)
           self.startReceiving()
         }
       }
@@ -181,7 +181,7 @@ class GeminiLiveService: ObservableObject {
     }
   }
 
-  private func sendSetupMessage() {
+  private func sendSetupMessage(agentAvailable: Bool) {
     // Gemini 3.8 Live is already optimized for low-latency interleaved
     // reasoning and rejects the old thinkingConfig used by preview models.
     let generationConfig: [String: Any] = ["responseModalities": ["AUDIO"]]
@@ -196,7 +196,7 @@ class GeminiLiveService: ObservableObject {
         ],
         "tools": [
           [
-            "functionDeclarations": ToolDeclarations.allDeclarations()
+            "functionDeclarations": ToolDeclarations.allDeclarations(agentAvailable: agentAvailable)
           ]
         ],
         "realtimeInputConfig": [

@@ -34,6 +34,17 @@ class OpenClawBridge: ObservableObject {
     self.sessionKey = OpenClawBridge.stableSessionKey
   }
 
+  static func connectionState(forHTTPStatus statusCode: Int) -> OpenClawConnectionState {
+    switch statusCode {
+    case 200...299:
+      return .connected
+    case 401, 403:
+      return .unreachable("Token rejected")
+    default:
+      return .unreachable("HTTP \(statusCode)")
+    }
+  }
+
   func checkConnection() async {
     guard GeminiConfig.isAgentConfigured else {
       connectionState = .notConfigured
@@ -50,9 +61,9 @@ class OpenClawBridge: ObservableObject {
     request.setValue("glass", forHTTPHeaderField: "x-openclaw-message-channel")
     do {
       let (_, response) = try await pingSession.data(for: request)
-      if let http = response as? HTTPURLResponse, (200...499).contains(http.statusCode) {
-        connectionState = .connected
-        NSLog("[OpenClaw] Gateway reachable (HTTP %d)", http.statusCode)
+      if let http = response as? HTTPURLResponse {
+        connectionState = Self.connectionState(forHTTPStatus: http.statusCode)
+        NSLog("[OpenClaw] Gateway check: HTTP %d", http.statusCode)
       } else {
         connectionState = .unreachable("Unexpected response")
       }

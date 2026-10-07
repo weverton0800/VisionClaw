@@ -43,6 +43,14 @@ final class SettingsManager {
   static let shared = SettingsManager()
 
   private let defaults = UserDefaults.standard
+  private let secureStore = SecureStore()
+
+  private enum SecretKey: String {
+    case geminiAPIKey
+    case openClawHookToken
+    case openClawGatewayToken
+    case cloudGatewayToken
+  }
 
   private enum Key: String {
     case geminiAPIKey
@@ -60,17 +68,23 @@ final class SettingsManager {
     case proactiveNotificationsEnabled
   }
 
-  private init() {}
+  private init() {
+    migrateLegacySecrets()
+    migrateLegacyDefaultPrompt()
+  }
 
   // MARK: - Gemini
 
-  var geminiAPIKey: String {
-    get { defaults.string(forKey: Key.geminiAPIKey.rawValue) ?? Secrets.geminiAPIKey }
-    set { defaults.set(newValue, forKey: Key.geminiAPIKey.rawValue) }
+  var geminiAPIKey: *** {
+    get { secret(.geminiAPIKey, fallback: Secrets.geminiAPIKey) }
+    set { setSecret(newValue, for: .geminiAPIKey) }
   }
 
   var geminiSystemPrompt: String {
-    get { defaults.string(forKey: Key.geminiSystemPrompt.rawValue) ?? GeminiConfig.defaultSystemInstruction }
+    get {
+      let stored = defaults.string(forKey: Key.geminiSystemPrompt.rawValue)
+      return GeminiConfig.migratedStoredPrompt(stored ?? GeminiConfig.defaultSystemInstruction)
+    }
     set { defaults.set(newValue, forKey: Key.geminiSystemPrompt.rawValue) }
   }
 
@@ -97,13 +111,13 @@ final class SettingsManager {
   }
 
   var openClawHookToken: String {
-    get { defaults.string(forKey: Key.openClawHookToken.rawValue) ?? Secrets.openClawHookToken }
-    set { defaults.set(newValue, forKey: Key.openClawHookToken.rawValue) }
+    get { secret(.openClawHookToken, fallback: Secrets.openClawHookToken) }
+    set { setSecret(newValue, for: .openClawHookToken) }
   }
 
   var openClawGatewayToken: String {
-    get { defaults.string(forKey: Key.openClawGatewayToken.rawValue) ?? Secrets.openClawGatewayToken }
-    set { defaults.set(newValue, forKey: Key.openClawGatewayToken.rawValue) }
+    get { secret(.openClawGatewayToken, fallback: Secrets.openClawGatewayToken) }
+    set { setSecret(newValue, for: .openClawGatewayToken) }
   }
 
   // MARK: - Agent backend selection
@@ -144,8 +158,8 @@ final class SettingsManager {
   }
 
   var cloudGatewayToken: String {
-    get { defaults.string(forKey: Key.cloudGatewayToken.rawValue) ?? Secrets.cloudGatewayToken }
-    set { defaults.set(newValue, forKey: Key.cloudGatewayToken.rawValue) }
+    get { secret(.cloudGatewayToken, fallback: Secrets.cloudGatewayToken) }
+    set { setSecret(newValue, for: .cloudGatewayToken) }
   }
 
   // MARK: - Audio
@@ -169,13 +183,57 @@ final class SettingsManager {
     set { defaults.set(newValue, forKey: Key.proactiveNotificationsEnabled.rawValue) }
   }
 
+  // MARK: - Secure credential helpers
+
+  private func secret(_ key: SecretKey, fallback: String) -> String {
+    (try? secureStore.value(for: key.rawValue)) ?? fallback
+  }
+
+  private func setSecret(_ value: String, for key: SecretKey) {
+    do {
+      if value.isEmpty {
+        try secureStore.remove(key.rawValue)
+      } else {
+        try secureStore.set(value, for: key.rawValue)
+      }
+      defaults.removeObject(forKey: key.rawValue)
+    } catch {
+      NSLog("[Settings] Keychain update failed for %@: %@", key.rawValue, error.localizedDescription)
+    }
+  }
+
+  private func migrateLegacySecrets() {
+    let mappings: [(SecretKey, Key)] = [
+      (.geminiAPIKey, .geminiAPIKey),
+      (.openClawHookToken, .openClawHookToken),
+      (.openClawGatewayToken, .openClawGatewayToken),
+      (.cloudGatewayToken, .cloudGatewayToken)
+    ]
+    for (secretKey, legacyKey) in mappings {
+      guard let value = defaults.string(forKey: legacyKey.rawValue), !value.isEmpty else { continue }
+      if (try? secureStore.value(for: secretKey.rawValue)) == nil {
+        try? secureStore.set(value, for: secretKey.rawValue)
+      }
+      defaults.removeObject(forKey: legacyKey.rawValue)
+    }
+  }
+
+  private func migrateLegacyDefaultPrompt() {
+    guard let stored = defaults.string(forKey: Key.geminiSystemPrompt.rawValue),
+          stored == GeminiConfig.legacyDefaultSystemInstruction else { return }
+    defaults.set(GeminiConfig.defaultSystemInstruction, forKey: Key.geminiSystemPrompt.rawValue)
+  }
+
   // MARK: - Reset
 
   func resetAll() {
-    for key in [Key.geminiAPIKey, .geminiSystemPrompt, .assistiveMode, .agentBackend, .openClawHost, .openClawPort,
-                .openClawHookToken, .openClawGatewayToken, .cloudGatewayURL, .cloudGatewayToken,
-                .speakerOutputEnabled, .videoStreamingEnabled,
+    for key in [Key.geminiSystemPrompt, .assistiveMode, .agentBackend, .openClawHost, .openClawPort,
+                .cloudGatewayURL, .speakerOutputEnabled, .videoStreamingEnabled,
                 .proactiveNotificationsEnabled] {
+      defaults.removeObject(forKey: key.rawValue)
+    }
+    for key in [SecretKey.geminiAPIKey, .openClawHookToken, .openClawGatewayToken, .cloudGatewayToken] {
+      try? secureStore.remove(key.rawValue)
       defaults.removeObject(forKey: key.rawValue)
     }
   }

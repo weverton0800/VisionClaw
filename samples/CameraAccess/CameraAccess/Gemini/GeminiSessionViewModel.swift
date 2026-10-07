@@ -1,6 +1,23 @@
 import Foundation
 import SwiftUI
 
+struct SessionStartupGeneration {
+  private(set) var value: UInt = 0
+
+  mutating func begin() -> UInt {
+    value &+= 1
+    return value
+  }
+
+  mutating func cancel() {
+    value &+= 1
+  }
+
+  func isCurrent(_ candidate: UInt) -> Bool {
+    candidate == value
+  }
+}
+
 @MainActor
 class GeminiSessionViewModel: ObservableObject {
   @Published var isGeminiActive: Bool = false
@@ -24,6 +41,7 @@ class GeminiSessionViewModel: ObservableObject {
   private let eventClient = OpenClawEventClient()
   private var lastVideoFrameTime: Date = .distantPast
   private var stateObservation: Task<Void, Never>?
+  private var startupGeneration = SessionStartupGeneration()
 
   var streamingMode: StreamingMode = .glasses
 
@@ -36,6 +54,7 @@ class GeminiSessionViewModel: ObservableObject {
     }
 
     A11y.announce("Connecting to Gemini")
+    let startup = startupGeneration.begin()
     isGeminiActive = true
 
     // Wire audio callbacks
@@ -108,9 +127,13 @@ class GeminiSessionViewModel: ObservableObject {
       }
     }
 
-    // Check OpenClaw connectivity and start fresh session
-    await openClawBridge.checkConnection()
-    openClawBridge.resetSession()
+    // Check OpenClaw connectivity and start fresh session. No credentials means
+    // direct Gemini mode, so skip the network timeout entirely.
+    if GeminiConfig.isAgentConfigured {
+      await openClawBridge.checkConnection()
+      guard startupGeneration.isCurrent(startup), isGeminiActive else { return }
+      openClawBridge.resetSession()
+    }
 
     // Wire tool call handling
     toolCallRouter = ToolCallRouter(bridge: openClawBridge)
@@ -157,7 +180,11 @@ class GeminiSessionViewModel: ObservableObject {
     }
 
     // Connect to Gemini and wait for setupComplete
-    let setupOk = await geminiService.connect()
+    let setupOk = await geminiService.connect(agentAvailable: openClawBridge.connectionState == .connected)
+    guard startupGeneration.isCurrent(startup), isGeminiActive else {
+      geminiService.disconnect()
+      return
+    }
 
     if !setupOk {
       let msg: String
@@ -190,8 +217,9 @@ class GeminiSessionViewModel: ObservableObject {
       return
     }
 
-    // Connect to OpenClaw event stream for proactive notifications
-    if SettingsManager.shared.proactiveNotificationsEnabled {
+    // Direct mode has no agent event stream to connect to.
+    if SettingsManager.shared.proactiveNotificationsEnabled,
+       openClawBridge.connectionState == .connected {
       eventClient.onNotification = { [weak self] text in
         guard let self else { return }
         Task { @MainActor in
@@ -217,6 +245,7 @@ class GeminiSessionViewModel: ObservableObject {
 
   func stopSession(announceEnd: Bool = true) {
     let wasActive = isGeminiActive
+    startupGeneration.cancel()
     openClawBridge.flushSessionContext()
     eventClient.disconnect()
     toolCallRouter?.cancelAll()
