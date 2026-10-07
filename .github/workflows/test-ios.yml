@@ -30,3 +30,13 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' \
             -only-testing:CameraAccessTests/VisionClawConfigurationTests \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Verify first-launch accessibility semantics
+        run: |
+          set -euo pipefail
+          grep -q 'accessibilityLabel("Settings")' CameraAccess/Views/StreamView.swift
+          grep -q 'accessibilityLabel("Capture photo")' CameraAccess/Views/StreamView.swift
+          grep -q '"End call" : "Start call"' CameraAccess/Views/StreamView.swift
+          grep -q 'A11y.announce("Gemini ready")' CameraAccess/Gemini/GeminiSessionViewModel.swift
+          grep -q 'A11y.announce("Gemini connection lost", assertive: true)' CameraAccess/Gemini/GeminiSessionViewModel.swift
+          grep -q 'Open Settings and enter it under Gemini API' CameraAccess/Views/StreamSessionView.swift

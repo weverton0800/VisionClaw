@@ -80,7 +80,11 @@ struct StreamSessionView: View {
       // AURemoteIO (RPC timeout against the sim's audio server, SIGABRT,
       // uncatchable). The AI button still works there for manual testing.
       #if !targetEnvironment(simulator)
-      guard streaming, GeminiConfig.isConfigured, !geminiVM.isGeminiActive else { return }
+      guard streaming, !geminiVM.isGeminiActive else { return }
+      guard GeminiConfig.isConfigured else {
+        geminiVM.errorMessage = "Gemini API key not configured. Open Settings and enter it under Gemini API."
+        return
+      }
       Task { await geminiVM.startSession() }
       #endif
     }

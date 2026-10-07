@@ -31,10 +31,11 @@ class GeminiSessionViewModel: ObservableObject {
     guard !isGeminiActive else { return }
 
     guard GeminiConfig.isConfigured else {
-      errorMessage = "Gemini API key not configured. Open GeminiConfig.swift and replace YOUR_GEMINI_API_KEY with your key from https://aistudio.google.com/apikey"
+      errorMessage = "Gemini API key not configured. Open Settings and enter it under Gemini API."
       return
     }
 
+    A11y.announce("Connecting to Gemini")
     isGeminiActive = true
 
     // Wire audio callbacks
@@ -101,7 +102,8 @@ class GeminiSessionViewModel: ObservableObject {
       guard let self else { return }
       Task { @MainActor in
         guard self.isGeminiActive else { return }
-        self.stopSession()
+        self.stopSession(announceEnd: false)
+        A11y.announce("Gemini connection lost", assertive: true)
         self.errorMessage = "Connection lost: \(reason ?? "Unknown error")"
       }
     }
@@ -177,6 +179,7 @@ class GeminiSessionViewModel: ObservableObject {
     do {
       try audioManager.startCapture()
       echoCancellationOn = audioManager.echoCancellationActive
+      A11y.announce("Gemini ready")
     } catch {
       errorMessage = "Mic capture failed: \(error.localizedDescription)"
       geminiService.disconnect()
@@ -212,7 +215,8 @@ class GeminiSessionViewModel: ObservableObject {
       options: .regularExpression)
   }
 
-  func stopSession() {
+  func stopSession(announceEnd: Bool = true) {
+    let wasActive = isGeminiActive
     openClawBridge.flushSessionContext()
     eventClient.disconnect()
     toolCallRouter?.cancelAll()
@@ -228,6 +232,7 @@ class GeminiSessionViewModel: ObservableObject {
     aiTranscript = ""
     toolCallStatus = .idle
     echoCancellationOn = nil
+    if announceEnd && wasActive { A11y.announce("Gemini session ended") }
   }
 
   /// Let look_closely reach the camera. Called by whoever owns both view models;

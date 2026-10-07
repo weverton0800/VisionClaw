@@ -9,28 +9,15 @@ enum AgentBackend: String, CaseIterable {
   case selfHosted = "Self-hosted"
 }
 
-/// Which Live API architecture speaks. Natural is the native-audio model:
-/// the most lifelike voice, but slower to first audio. Fast is the
-/// half-cascade (streaming ASR + LLM + TTS), built for latency.
+/// The current stable low-latency Live API voice model.
 enum VoiceEngine: String, CaseIterable {
   case natural = "natural"
-  case fast = "fast"
 
   static let defaultsKey = "voiceEngine"
 
-  var label: String {
-    switch self {
-    case .natural: return "Natural"
-    case .fast: return "Fast"
-    }
-  }
+  var label: String { "Gemini Live" }
 
-  var modelPath: String {
-    switch self {
-    case .natural: return "models/gemini-2.5-flash-native-audio-preview-12-2025"
-    case .fast: return "models/gemini-live-2.5-flash-preview"
-    }
-  }
+  var modelPath: String { "models/gemini-3.8-live" }
 }
 
 /// Where video comes from. The app is a vision assistant first -- it opens
@@ -67,6 +54,7 @@ final class SettingsManager {
     case cloudGatewayURL
     case cloudGatewayToken
     case geminiSystemPrompt
+    case assistiveMode
     case speakerOutputEnabled
     case videoStreamingEnabled
     case proactiveNotificationsEnabled
@@ -84,6 +72,13 @@ final class SettingsManager {
   var geminiSystemPrompt: String {
     get { defaults.string(forKey: Key.geminiSystemPrompt.rawValue) ?? GeminiConfig.defaultSystemInstruction }
     set { defaults.set(newValue, forKey: Key.geminiSystemPrompt.rawValue) }
+  }
+
+  /// Speech-first scene description for blind and low-vision users. This fork is
+  /// prepared for a blind owner, so it defaults on but remains user-configurable.
+  var assistiveMode: Bool {
+    get { defaults.object(forKey: Key.assistiveMode.rawValue) as? Bool ?? true }
+    set { defaults.set(newValue, forKey: Key.assistiveMode.rawValue) }
   }
 
   // MARK: - OpenClaw
@@ -177,7 +172,7 @@ final class SettingsManager {
   // MARK: - Reset
 
   func resetAll() {
-    for key in [Key.geminiAPIKey, .geminiSystemPrompt, .agentBackend, .openClawHost, .openClawPort,
+    for key in [Key.geminiAPIKey, .geminiSystemPrompt, .assistiveMode, .agentBackend, .openClawHost, .openClawPort,
                 .openClawHookToken, .openClawGatewayToken, .cloudGatewayURL, .cloudGatewayToken,
                 .speakerOutputEnabled, .videoStreamingEnabled,
                 .proactiveNotificationsEnabled] {

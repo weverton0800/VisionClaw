@@ -70,6 +70,7 @@ struct StreamView: View {
               .padding(10)
               .background(.black.opacity(0.35), in: Circle())
           }
+          .accessibilityLabel("Settings")
           .padding(.trailing, 16)
         }
         Spacer()
@@ -83,6 +84,7 @@ struct StreamView: View {
         // resolution, rather than a converted frame stretched to fit.
         IPhoneCameraPreviewView(session: session)
           .edgesIgnoringSafeArea(.all)
+          .accessibilityHidden(true)
           .gesture(
             MagnificationGesture()
               .onChanged { scale in viewModel.updateIPhoneZoom(scale: scale) }
@@ -109,6 +111,7 @@ struct StreamView: View {
             .aspectRatio(contentMode: .fill)
             .frame(width: geometry.size.width, height: geometry.size.height)
             .clipped()
+            .accessibilityHidden(true)
         }
         .edgesIgnoringSafeArea(.all)
       } else {
@@ -219,6 +222,8 @@ struct ControlsView: View {
         CircleButton(icon: "camera.fill", text: nil) {
           viewModel.capturePhoto()
         }
+        .accessibilityLabel("Capture photo")
+        .accessibilityHint("Takes a photo through your glasses")
       }
 
       // One control, call semantics: connected or not. Which services sit
@@ -264,6 +269,9 @@ struct CallButton: View {
         }
       }
     }
+    .accessibilityLabel(
+      isConnecting ? "Connecting to Gemini" : (geminiVM.isGeminiActive ? "End call" : "Start call")
+    )
     .disabled(isConnecting)
   }
 }

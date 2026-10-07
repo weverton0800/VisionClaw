@@ -55,10 +55,10 @@ struct SettingsView: View {
   @State private var proactiveNotificationsEnabled: Bool = true
   @State private var showResetConfirmation = false
   @State private var gatewayStatus: GatewayStatus = .checking
+  @State private var assistiveMode: Bool = true
   // Applies immediately rather than on Save: the root view observes the same
   // key and swaps the capture pipeline live.
   @AppStorage(CaptureSource.defaultsKey) private var captureSourceRaw = CaptureSource.iPhoneCamera.rawValue
-  @AppStorage(VoiceEngine.defaultsKey) private var voiceEngineRaw = VoiceEngine.natural.rawValue
 
   var body: some View {
     NavigationView {
@@ -74,15 +74,13 @@ struct SettingsView: View {
           .pickerStyle(.segmented)
         }
 
-        Section(header: Text("Voice"), footer: Text(voiceEngineRaw == VoiceEngine.fast.rawValue
-          ? "Fast: lower response latency, standard voice. Takes effect the next time voice connects."
-          : "Natural: the most lifelike voice, slower to start speaking. Takes effect the next time voice connects.")) {
-          Picker("Engine", selection: $voiceEngineRaw) {
-            ForEach(VoiceEngine.allCases, id: \.rawValue) { engine in
-              Text(engine.label).tag(engine.rawValue)
-            }
-          }
-          .pickerStyle(.segmented)
+        Section(header: Text("Voice"), footer: Text("Uses the current stable Gemini Live model. Changes apply to the next call.")) {
+          Text("Gemini 3.8 Live")
+        }
+
+        Section(header: Text("Accessibility"), footer: Text(
+          "Speech-first guidance for blind and low-vision users. It uses clock-face directions, reads visible text verbatim, states uncertainty, and never declares a path safe. Applies to the next call.")) {
+          Toggle("Assistive mode", isOn: $assistiveMode)
         }
 
         Section(header: Text("Action Agent"), footer: Text(selectedBackend == .cloud
@@ -293,6 +291,7 @@ struct SettingsView: View {
   private func loadCurrentValues() {
     geminiAPIKey = settings.geminiAPIKey
     geminiSystemPrompt = settings.geminiSystemPrompt
+    assistiveMode = settings.assistiveMode
     selectedBackend = settings.agentBackend
     cloudGatewayURL = settings.cloudGatewayURL
     cloudGatewayToken = settings.cloudGatewayToken
@@ -308,6 +307,7 @@ struct SettingsView: View {
   private func save() {
     settings.geminiAPIKey = geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
     settings.geminiSystemPrompt = geminiSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    settings.assistiveMode = assistiveMode
     settings.agentBackend = selectedBackend
     settings.cloudGatewayURL = cloudGatewayURL.trimmingCharacters(in: .whitespacesAndNewlines)
     settings.cloudGatewayToken = cloudGatewayToken.trimmingCharacters(in: .whitespacesAndNewlines)

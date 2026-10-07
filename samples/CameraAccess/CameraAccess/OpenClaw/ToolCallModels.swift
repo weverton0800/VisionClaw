@@ -91,7 +91,12 @@ enum ToolDeclarations {
   /// `listCalendarEvents` / `createCalendarEvent` stay defined for the
   /// on-device path; add them back here to switch EventKit back on.
   static func allDeclarations() -> [[String: Any]] {
-    return [execute, lookCloselyDeclaration, createReminder]
+    guard GeminiConfig.isAgentConfigured else { return directModeDeclarations() }
+    return [execute] + directModeDeclarations()
+  }
+
+  static func directModeDeclarations() -> [[String: Any]] {
+    [lookCloselyDeclaration, createReminder]
   }
 
   /// The ambient stream is one downscaled, compressed frame per second -- enough

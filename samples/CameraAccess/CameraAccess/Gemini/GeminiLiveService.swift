@@ -182,10 +182,9 @@ class GeminiLiveService: ObservableObject {
   }
 
   private func sendSetupMessage() {
-    var generationConfig: [String: Any] = ["responseModalities": ["AUDIO"]]
-    if GeminiConfig.supportsThinkingConfig {
-      generationConfig["thinkingConfig"] = ["thinkingBudget": 0]
-    }
+    // Gemini 3.8 Live is already optimized for low-latency interleaved
+    // reasoning and rejects the old thinkingConfig used by preview models.
+    let generationConfig: [String: Any] = ["responseModalities": ["AUDIO"]]
     let setup: [String: Any] = [
       "setup": [
         "model": GeminiConfig.model,
