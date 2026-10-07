@@ -2,6 +2,9 @@ name: Test VisionClaw iOS
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ios-direct-gemini
 
 permissions:
   contents: read
