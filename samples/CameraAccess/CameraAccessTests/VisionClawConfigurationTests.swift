@@ -14,10 +14,51 @@ final class VisionClawConfigurationTests: XCTestCase {
   }
 
   func testDirectModeToolDeclarationsDoNotAdvertiseUnavailableAgent() {
-    let names = ToolDeclarations.directModeDeclarations().compactMap { $0["name"] as? String }
+    let names = ToolDeclarations.allDeclarations(agentAvailable: false)
+      .compactMap { $0["name"] as? String }
 
     XCTAssertEqual(Set(names), Set(["look_closely", "create_reminder"]))
     XCTAssertFalse(names.contains("execute"))
+  }
+
+  func testConnectedAgentAddsExecuteTool() {
+    let names = ToolDeclarations.allDeclarations(agentAvailable: true)
+      .compactMap { $0["name"] as? String }
+
+    XCTAssertTrue(names.contains("execute"))
+  }
+
+  func testUnauthorizedGatewayIsNotConnected() {
+    XCTAssertEqual(OpenClawBridge.connectionState(forHTTPStatus: 200), .connected)
+    XCTAssertNotEqual(OpenClawBridge.connectionState(forHTTPStatus: 401), .connected)
+    XCTAssertNotEqual(OpenClawBridge.connectionState(forHTTPStatus: 403), .connected)
+  }
+
+  func testCancelledStartupGenerationCannotResume() {
+    var generation = SessionStartupGeneration()
+    let first = generation.begin()
+    XCTAssertTrue(generation.isCurrent(first))
+
+    generation.cancel()
+    XCTAssertFalse(generation.isCurrent(first))
+  }
+
+  func testLegacyDefaultPromptMigratesButCustomPromptDoesNot() {
+    XCTAssertEqual(
+      GeminiConfig.migratedStoredPrompt(GeminiConfig.legacyDefaultSystemInstruction),
+      GeminiConfig.defaultSystemInstruction
+    )
+    XCTAssertEqual(GeminiConfig.migratedStoredPrompt("My custom prompt"), "My custom prompt")
+  }
+
+  func testSecureStoreRoundTrip() throws {
+    let store = SecureStore(service: "VisionClawTests.\(UUID().uuidString)")
+    defer { try? store.remove("api-key") }
+
+    try store.set("secret-value", for: "api-key")
+    XCTAssertEqual(try store.value(for: "api-key"), "secret-value")
+    try store.remove("api-key")
+    XCTAssertNil(try store.value(for: "api-key"))
   }
 
   func testAssistivePromptPrioritizesBlindUserSafety() {
