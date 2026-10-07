@@ -75,7 +75,7 @@ final class SettingsManager {
 
   // MARK: - Gemini
 
-  var geminiAPIKey: *** {
+  var geminiAPIKey: String {
     get { secret(.geminiAPIKey, fallback: Secrets.geminiAPIKey) }
     set { setSecret(newValue, for: .geminiAPIKey) }
   }
