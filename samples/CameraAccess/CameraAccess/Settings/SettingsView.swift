@@ -210,10 +210,12 @@ struct SettingsView: View {
             Text("API Key")
               .font(.caption)
               .foregroundColor(.secondary)
-            TextField("Enter Gemini API key", text: $geminiAPIKey)
+            SecureField("Enter Gemini API key", text: $geminiAPIKey)
+              .textContentType(.password)
               .autocapitalization(.none)
               .disableAutocorrection(true)
               .font(.system(.body, design: .monospaced))
+              .accessibilityLabel("Gemini API key")
           }
         }
 

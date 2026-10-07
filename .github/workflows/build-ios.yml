@@ -1,0 +1,91 @@
+name: Build VisionClaw iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ios-direct-gemini
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visionclaw-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: samples/CameraAccess
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      - name: Show tool versions
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+
+      - name: Create non-secret app defaults
+        run: cp CameraAccess/Secrets.swift.example CameraAccess/Secrets.swift
+
+      - name: Resolve Swift packages
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project CameraAccess.xcodeproj \
+            -scheme CameraAccess
+
+      - name: Compile for a physical iPhone without signing
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/VisionClawDerivedData"
+          xcodebuild \
+            -project CameraAccess.xcodeproj \
+            -scheme CameraAccess \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/VisionClawDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            DEVELOPMENT_TEAM= \
+            PRODUCT_BUNDLE_IDENTIFIER=com.weverton.visionclaw \
+            clean build
+
+      - name: Package unsigned IPA for Windows sideloading
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/VisionClawDerivedData/Build/Products/Release-iphoneos/CameraAccess.app"
+          test -d "$APP"
+          rm -rf "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/VisionClaw-unsigned.ipa"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/Payload" \
+            "$RUNNER_TEMP/VisionClaw-unsigned.ipa"
+          test -s "$RUNNER_TEMP/VisionClaw-unsigned.ipa"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          shasum -a 256 "$RUNNER_TEMP/VisionClaw-unsigned.ipa"
+          ls -lh "$RUNNER_TEMP/VisionClaw-unsigned.ipa"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: VisionClaw-unsigned-ipa
+          path: ${{ runner.temp }}/VisionClaw-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
