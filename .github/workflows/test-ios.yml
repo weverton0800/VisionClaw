@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(grep -R --include='*.swift' -nE 'AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z_-]{20,}' CameraAccess CameraAccessTests | wc -l | tr -d ' ')" = "0"
-          grep -q 'static let modelPath = "models/gemini-3.8-live"' CameraAccess/Settings/SettingsManager.swift
+          grep -q 'var modelPath: String { "models/gemini-3.8-live" }' CameraAccess/Settings/SettingsManager.swift
           grep -q 'func testDirectModeToolDeclarationsDoNotAdvertiseUnavailableAgent' CameraAccessTests/VisionClawConfigurationTests.swift
           grep -q 'func testUnauthorizedGatewayIsNotConnected' CameraAccessTests/VisionClawConfigurationTests.swift
           grep -q 'func testCancelledStartupGenerationCannotResume' CameraAccessTests/VisionClawConfigurationTests.swift
