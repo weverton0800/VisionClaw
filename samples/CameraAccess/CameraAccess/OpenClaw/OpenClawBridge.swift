@@ -34,7 +34,7 @@ class OpenClawBridge: ObservableObject {
     self.sessionKey = OpenClawBridge.stableSessionKey
   }
 
-  static func connectionState(forHTTPStatus statusCode: Int) -> OpenClawConnectionState {
+  nonisolated static func connectionState(forHTTPStatus statusCode: Int) -> OpenClawConnectionState {
     switch statusCode {
     case 200...299:
       return .connected
