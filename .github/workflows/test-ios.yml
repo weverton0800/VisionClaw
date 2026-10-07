@@ -1,0 +1,29 @@
+name: Test VisionClaw iOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: samples/CameraAccess
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - run: cp CameraAccess/Secrets.swift.example CameraAccess/Secrets.swift
+      - name: Run configuration tests
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project CameraAccess.xcodeproj \
+            -scheme CameraAccess \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' \
+            -only-testing:CameraAccessTests/VisionClawConfigurationTests \
+            CODE_SIGNING_ALLOWED=NO
